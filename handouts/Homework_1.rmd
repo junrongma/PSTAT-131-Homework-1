@@ -1,24 +1,34 @@
 ---
 title: "Homework 1"
-author: "PSTAT 131/231, Spring 2019"
-date: "__Due on April 19, 2019 at 11:55 pm__"
+subtitle: "PSTAT 131/231, Spring 2019"
+author: "Eduardo Escoto (Perm: 7611817) / JunRong Ma (Perm: 1234567) / (PSTAT 131)"
+date: "__Due on April 20, 2019 at 11:59 pm__"
 graphics: yes
-output: pdf_document
+output: 
+  pdf_document
+knit: (function(output_file, encoding){rmarkdown::render(output_file, output_format = "pdf_document", output_dir = "../output")})
 ---
 
 ```{r setup, include=FALSE}
 library(knitr)
-knitr::opts_chunk$set(echo=TRUE, 
-                      cache=FALSE, 
-                      fig.width=5, 
-                      fig.height=5,
-                      fig.align='center')
-indent1 = '    '
-indent2 = paste(rep(indent1, 2), collapse='')
-indent3 = paste(rep(indent1, 3), collapse='')
-r = function(x, digits=2){ round(x, digits=digits) }
 library(tidyverse)
 library(reshape2)
+indent1 = '    '
+indent2 = paste(rep(indent1, 2), collapse = '')
+indent3 = paste(rep(indent1, 3), collapse = '')
+r = function(x, digits = 2) {
+  round(x, digits = digits)
+}
+```
+
+```{r setting_chunk_options, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  cache = FALSE,
+  fig.width = 5,
+  fig.height = 5,
+  fig.align = 'center'
+)
 ```
 
 __Note:__ If you are working with a partner, please submit only one homework per group with both names and whether you are taking the course for graduate credit or not.  Submit your Rmarkdown (.Rmd) and the compiled pdf on Gauchospace.
@@ -66,8 +76,7 @@ predictive models). To read the data from the file it is sufficient to issue
 the following command:
 
 ```{r load, message=F, warning=F, results="hide"}
-
-algae <- read_table2("algaeBloom.txt", col_names=
+algae <- read_table2("../algae_data/algaeBloom.txt", col_names=
                       c('season','size','speed','mxPH','mnO2','Cl','NO3','NH4',
                         'oPO4','PO4','Chla','a1','a2','a3','a4','a5','a6','a7'), 
                       na="XXXXXXX")
@@ -85,19 +94,59 @@ glimpse(algae)
     #. Count the number of observations in each season using `summarise()` in
     `dplyr`. 
     
+```{r 1.a) Number of observations, indent = indent2}
+number_of_obs_by_season <- algae %>% 
+  # Group observations by season
+  group_by(season) %>%
+  # Counts the number of observations in the groups
+  summarise(n = n()) 
+
+number_of_obs_by_season
+```
 
     #. Are there missing values? Calculate the mean and variance of each
     chemical (Ignore $a_1$ through $a_7$). What do you notice about the
     magnitude of the two quantities for different chemicals? 
 
+```{r 1.b) Missing Values, indent = indent2}
+algae_missing_values <- algae %>%
+  # Filters on all columns and predicate returns true if any column contains an NA
+  filter_all(any_vars(is.na(.)))
+
+algae_missing_values
+```
+
+```{r 1.b) Mean and Variance of each chemical, indent = indent2}
+m_v_by_chemical <- algae %>%
+  # Selects All chemicals
+  select(mnO2:Chla) %>%
+  # Groups by key THEN removes NA's
+  gather() %>% group_by(key) %>% na.omit() %>%
+  # Calculates mean and variance
+  summarise_all(list(mean = ~ mean(.),
+                     variance = ~ var(.)))
+m_v_by_chemical
+```
 
     #. Mean and Variance is one measure of central tendency and spread of data.
     Median and Median Absolute Deviation are alternative measures of central
     tendency and spread. 
 
         For a univariate data set $X_1, X_2, ..., X_n$, the Median Absolute Deviation (MAD) is defined as the median of the absolute deviations from the data's median: $$\text{MAD}=\text{median} (|X_i-\text{median}(X)|)$$
-
         Compute median and MAD of each chemical and compare the two sets of quantities (i.e., mean & variance vs. median & MAD). What do you notice? 
+        
+```{r 1.c) MAD of each chemical, indent = indent2}
+med_mad_by_chemical <- algae %>%
+  # Selects only the chemicals
+  select(mnO2:Chla) %>%
+  # Removes the NA's AFTER grouping
+  gather() %>% group_by(key) %>% na.omit() %>%
+  # Calculates the MAD and Medians
+  summarise_all(list(median = ~ median(.),
+                     mad = ~ mad(., constant = 1, low = F, high = F)))
+
+med_mad_by_chemical
+```
 
 
 2. __*Data visualization*__ Most of the time, the information in the data set is also well captured graphically. Histogram, scatter plot, boxplot, Q-Q plot are frequently used tools for data visualization. Use ggplot for all of these visualizations. 
@@ -225,9 +274,10 @@ do.chunk <- function(chunkid, chunkdef, dat){  # function argument
     predYvl = predict(lm.a1,Xvl)  # predict validation values
 
     data.frame(fold = chunkid,
-               train.error = mean((predYtr - Ytr$a1)^2), # compute and store training error
-               val.error = mean((predYvl - Yvl$a1)^2))   # compute and store test error
-
+               # compute and store training error
+               train.error = mean((predYtr - Ytr$a1)^2),
+                # compute and store test error
+               val.error = mean((predYvl - Yvl$a1)^2))  
 }
 ```
         
@@ -248,7 +298,7 @@ do.chunk <- function(chunkid, chunkdef, dat){  # function argument
     #. Additional data can be found in the file `algaeTest.txt`.
 
 ```{r real,indent=indent2,message=F,warning=F}
-algae.Test <- read_table2('algaeTest.txt',
+algae.Test <- read_table2('../algae_data/algaeTest.txt',
                     col_names=c('season','size','speed','mxPH','mnO2','Cl','NO3',
                                 'NH4','oPO4','PO4','Chla','a1'),
                     na=c('XXXXXXX'))
