@@ -91,15 +91,17 @@ glimpse(algae)
    analysis. A first idea of the statistical properties of the data can be
    obtained through a summary of its descriptive statistics. 
     
-    #. Count the number of observations in each season using `summarise()` in
+    #. Count the number of observations in each season using `summarize()` in
     `dplyr`. 
     
-```{r 1.a) Number of observations, indent = indent2}
+        #. The numbers of observations for each season are calculated below and displayed in the `n_obs` column in the tibble below.
+    
+```{r 1.a) Number of observations, indent = indent3}
 number_of_obs_by_season <- algae %>% 
   # Group observations by season
   group_by(season) %>%
   # Counts the number of observations in the groups
-  summarise(n = n()) 
+  summarize(n_obs = n()) 
 
 number_of_obs_by_season
 ```
@@ -107,26 +109,32 @@ number_of_obs_by_season
     #. Are there missing values? Calculate the mean and variance of each
     chemical (Ignore $a_1$ through $a_7$). What do you notice about the
     magnitude of the two quantities for different chemicals? 
-
-```{r 1.b) Missing Values, indent = indent2}
+    
+        #. There are indeed missing values! In the tibble below there is a preview of missing values.
+      
+```{r 1.b) Missing Values, indent = indent3}
 algae_missing_values <- algae %>%
-  # Filters on all columns and predicate returns true if any column contains an NA
+  # Filters on all columns on if any column contains an NA
   filter_all(any_vars(is.na(.)))
 
 algae_missing_values
 ```
-
-```{r 1.b) Mean and Variance of each chemical, indent = indent2}
+      
+        #. The Means and Variances for each chemical are calculated below and displayed in the tibble.
+      
+```{r 1.b) Mean and Variance of each chemical, indent = indent3}
 m_v_by_chemical <- algae %>%
   # Selects All chemicals
   select(mnO2:Chla) %>%
   # Groups by key THEN removes NA's
-  gather() %>% group_by(key) %>% na.omit() %>%
+  gather(factor_key = TRUE) %>% group_by(key) %>% na.omit() %>%
   # Calculates mean and variance
-  summarise_all(list(mean = ~ mean(.),
+  summarize_all(list(mean = ~ mean(.),
                      variance = ~ var(.)))
 m_v_by_chemical
 ```
+
+        #. As you can see in the tibble above, the magnitudes of thes Means for each chemical seem to vary highly and they all have large Variances with high magnitudes. That means that there is alot of spread between all of the data points for each chemical, except for $\text{mnO}2$ which has a variance of $`r m_v_by_chemical[1,3]`$ which is relatively small compared to the variance of the other chemicals.
 
     #. Mean and Variance is one measure of central tendency and spread of data.
     Median and Median Absolute Deviation are alternative measures of central
@@ -140,13 +148,19 @@ med_mad_by_chemical <- algae %>%
   # Selects only the chemicals
   select(mnO2:Chla) %>%
   # Removes the NA's AFTER grouping
-  gather() %>% group_by(key) %>% na.omit() %>%
+  gather(factor_key = TRUE) %>% group_by(key) %>% na.omit() %>%
   # Calculates the MAD and Medians
-  summarise_all(list(median = ~ median(.),
+  summarize_all(list(median = ~ median(.),
                      mad = ~ mad(., constant = 1, low = F, high = F)))
 
 med_mad_by_chemical
 ```
+
+        #. Between *Mean* and *Median* the values tend to be pretty close to eachother, except in the case of $\text{NH}4$ where the mean is about 400 more than the median. 
+        
+        #. The more noticable difference is the difference between *MAD* and *Variance.* Where the MAD is significantly lower compared to the Variance for the same chemical. A prime example of this is again, $\text{NH}4$ where the MAD is $`r med_mad_by_chemical[4,3]`$ which is 4 powers of 10 lower than the Variance of $`r m_v_by_chemical[4,3]`$. 
+        
+        #. These differences between Mean and Medain and MAD and Variacne might tell us that most values tend to be close together but there are some values for each chemical that are very large that are skewing the Means and Variances.
 
 
 2. __*Data visualization*__ Most of the time, the information in the data set is also well captured graphically. Histogram, scatter plot, boxplot, Q-Q plot are frequently used tools for data visualization. Use ggplot for all of these visualizations. 
@@ -184,7 +198,24 @@ problem.
     #. How many observations contain missing values? How many missing values
     are there in each variable? 
 
+```{r 3a) Observations With Missing Values, indent = indent2}
+n_missing_obs <- algae %>% 
+  filter_all(any_vars(is.na(.))) %>% nrow()
 
+n_missing_obs
+```
+
+        #. There are $`r n_missing_obs`$ observations with missing values.
+
+```{r 3a) Missing Values in each variable, indent = indent2}
+n_missing_obs_by_variable <- algae %>% 
+  gather(factor_key = TRUE) %>% group_by(key) %>% 
+  summarize_all(list(n_missing_vals = ~ sum(is.na(.))))
+
+n_missing_obs_by_variable
+```
+
+        #. This tibble displays the number of missing values per variable.
 
     #. **Removing observations with missing values**: use `filter()` function
     in `dplyr` package to observations with any missing value, and save the
@@ -193,8 +224,16 @@ problem.
     
         Hint: `complete.cases()` may be useful.
 
+```{r 3b) Missing Values Removed, indent = indent2}
+algae.del <- algae %>%
+  filter(complete.cases(.))
 
+# algae.del <- algae %>% na.omit() - Easier and also works
 
+nrow(algae.del)
+```
+
+        #. There are $`r nrow(alge.del)`$ observations in `algae.del`
 
     #. \label{imputation} **Imputing unknowns with measures of central
     tendency**: the simplest and fastest way of filling in (imputing) missing
@@ -207,7 +246,10 @@ problem.
         the values of each chemical for the $48^{th}$, $62^{th}$ and $199^{th}$
         obsevation in `algae.med`. 
 
-
+```{r 3c) Imputing values, indent = indent2}
+algae.med <- algae %>%
+  
+```
 
         This simple strategy, although extremely fast and thus appealing for
         large datasets, imputed values may have large bias that can influence
