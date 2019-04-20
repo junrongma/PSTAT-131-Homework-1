@@ -127,7 +127,7 @@ m_v_by_chemical <- algae %>%
   # Selects All chemicals
   select(mnO2:Chla) %>%
   # Groups by key THEN removes NA's
-  gather(factor_key = TRUE) %>% group_by(key) %>% na.omit() %>%
+  gather(chemical,factor_key = TRUE) %>% group_by(chemical) %>% na.omit() %>%
   # Calculates mean and variance
   summarize_all(list(mean = ~ mean(.),
                      variance = ~ var(.)))
@@ -148,7 +148,7 @@ med_mad_by_chemical <- algae %>%
   # Selects only the chemicals
   select(mnO2:Chla) %>%
   # Removes the NA's AFTER grouping
-  gather(factor_key = TRUE) %>% group_by(key) %>% na.omit() %>%
+  gather(chemical,factor_key = TRUE) %>% group_by(chemical) %>% na.omit() %>%
   # Calculates the MAD and Medians
   summarize_all(list(median = ~ median(.),
                      mad = ~ mad(., constant = 1, low = F, high = F)))
@@ -209,7 +209,7 @@ n_missing_obs
 
 ```{r 3a) Missing Values in each variable, indent = indent2}
 n_missing_obs_by_variable <- algae %>% 
-  gather(factor_key = TRUE) %>% group_by(key) %>% 
+  gather(variable,factor_key = TRUE) %>% group_by(variable) %>% 
   summarize_all(list(n_missing_vals = ~ sum(is.na(.))))
 
 n_missing_obs_by_variable
@@ -228,12 +228,10 @@ n_missing_obs_by_variable
 algae.del <- algae %>%
   filter(complete.cases(.))
 
-# algae.del <- algae %>% na.omit() - Easier and also works
-
 nrow(algae.del)
 ```
 
-        #. There are $`r nrow(alge.del)`$ observations in `algae.del`
+        #. There are $`r nrow(algae.del)`$ observations in `algae.del`
 
     #. \label{imputation} **Imputing unknowns with measures of central
     tendency**: the simplest and fastest way of filling in (imputing) missing
@@ -246,10 +244,31 @@ nrow(algae.del)
         the values of each chemical for the $48^{th}$, $62^{th}$ and $199^{th}$
         obsevation in `algae.med`. 
 
-```{r 3c) Imputing values, indent = indent2}
+```{r 3c) Imputing values with medians, indent = indent2}
+# Gets Columns with missing data into vector
+missing_keys <- algae %>% 
+  gather(factor_key = TRUE) %>% group_by(key) %>%
+  filter_all(any_vars(is.na(.))) %>% tally() %>%
+  pull(key)
+
+# Imputes at all values in columns that have missing data
 algae.med <- algae %>%
-  
+   mutate_at(.vars = vars(missing_keys),
+             .funs = list(~ ifelse(is.na(.), median(., na.rm=TRUE), .)))
 ```
+
+```{r 3c) print at, indent = indent2}
+chemicals_algae.med = algae.med %>% select(mnO2:Chla)
+
+displ_chem_imp <- rbind(chemicals_algae.med[48, ],
+                        chemicals_algae.med[62, ],
+                        chemicals_algae.med[199, ])
+displ_chem_imp <- tribble(~ index, 48, 62, 199) %>% cbind(displ_chem_imp)
+
+displ_chem_imp 
+```
+
+        #. The Tibble above shows the Imputed Values at the index requested.
 
         This simple strategy, although extremely fast and thus appealing for
         large datasets, imputed values may have large bias that can influence
@@ -263,17 +282,42 @@ algae.med <- algae %>%
     provided the two variables are not both unknown. 
     
         Compute pairwise correlation between the continuous (chemical) variables. 
+        
+```{r 3.d) pairwise corr, indent = indent2}
+algae.pairwise_corr <- algae %>% select(mnO2:Chla) %>% 
+  cor(use = 'complete.obs') %>% as_tibble(rownames = "id")
 
+algae.pairwise_corr
+```
 
+        #. The Pairwise Correlations are computed and displayed above.
 
         Then, fill in the missing value for `PO4` based on `oPO4` in the
         $28^{th}$ observation. What is the value you obtain? 
         
         Hint: use `lm()` and `predict()` function.
 
+```{r 3e) Imputing w corr, indent = indent2}
+PO4.lm = lm(PO4 ~ oPO4, algae)
+
+algae.PO4.pred <- algae %>%
+  mutate(PO4 = ifelse(is.na(PO4), 
+                      predict(PO4.lm, newdata = data.frame(oPO4)), PO4))
+
+algae.PO4.pred[28,"PO4"]
+```
+
+        #. Above, the PO4 for the 28th observation is calculated using a linear model based on oPO4 due to the high pairwise correlation between them. In the 28th observation we have the value of $\text{oPO4} = `r algae.PO4.pred[28,"oPO4"]`$ which gives us a predicted value of $\text{PO4} = `r algae.PO4.pred[28,"PO4"]`$.
 
     #. **Questioning missing data assumptions**:  When might imputation using only the observed data lead you to incorrect conclusions?  In a couple of sentences, describe a scenario in which the imputed values of the chemical abundances in the algae data  (imputed using either the median or correlation method) might be a poor substitute for the true missing values.  Hint: look at the example from lecture 2.  
+        
+        #. Imputation might cause us to have incorrect conclusions becuase of relying too heavily on the observed data only. Lets say that in a scenario of the algae data we have new data that is far from the prediction based on oPO4 or far from the medians of each chemical, then we will have very high test error, and a model that is too overfitted on the training data.
 
+        #. *In the context of Correlation Method:* In Lecture 2 we learned about *Survivorship Bias*. Many datesets have Survivorship Bias where the data that we have is insufficient in telling us about a certain variable. In the context of the algae data, using oPO4 to impute values of PO4 might be inducing Survivorship bias because oPO4 might actually not be sufficient in predicting PO4. Leading us to have high test error again
+        
+        #. *In the context of the Median Method:* this might lead us to the wrong conclusions by introducing alot of Bias because we are using only the observed data to impute. New data might be very far from the Median causing us to have values that have high test error.
+        
+        
 **_Estimating the Test Error with Cross Validation (CV)_**
     
 Using `algae.med` dataset obtained in \eqref{imputation}, we will build a linear regression model
@@ -291,7 +335,11 @@ model to data that have not been used for training.
         do the following. First, use `cut(..., label=FALSE)` to divide
         observation ids (1, 2, \dots ) into equal numbers of chunk ids. Then,
         randomize output of `cut()`by using `sample()`.
-       
+
+```{r 4a) Partitioning Data into 5 chunks}
+algae.folds <- cut(1:nrow(algae.med), breaks = 5, labels = FALSE) %>% sample()
+algae.folds
+```
 
 
     #. Perform 5-fold cross-validation with training error and validation
@@ -304,16 +352,16 @@ model to data that have not been used for training.
 do.chunk <- function(chunkid, chunkdef, dat){  # function argument
   
     train = (chunkdef != chunkid)
-
+    # print(paste("Train:", train))
     Xtr = dat[train,1:11]  # get training set
     Ytr = dat[train,12]  # get true response values in trainig set
-
+    
     Xvl = dat[!train,1:11]  # get validation set
     Yvl = dat[!train,12]  # get true response values in validation set
 
     lm.a1 <- lm(a1~., data = dat[train,1:12])
     predYtr = predict(lm.a1)  # predict training values
-    predYvl = predict(lm.a1,Xvl)  # predict validation values
+    predYvl = predict(lm.a1, Xvl)  # predict validation values
 
     data.frame(fold = chunkid,
                # compute and store training error
@@ -333,6 +381,11 @@ do.chunk <- function(chunkid, chunkdef, dat){  # function argument
 
         Write the code and print out the `train.error` and `val.error` five times (e.g. for each chunk).
 
+```{r}
+n = 5
+CV <- plyr::ldply(1:n, do.chunk, folds, algae.med)
+CV
+```
 
       
 5. BAD PROBLEM (test error is not similar to validation error) **Test error on additional data**: now imagine that you actually get _new_ data that wasn't available when you first fit the model.
@@ -369,6 +422,49 @@ head(Wage)
     
         #.  Fit a linear regression to predict wages as a function of $age$, $age^2$, ... $age^p$ (you should include an intercept as well).  Note that $p=0$ model is an "intercept-only" model.
         #.  Use 5-fold cross validation to estimate the test error for this model. Save both the test error and the training error.
+        
+```{r dowagechunks indent = indent2}
+do.wage.chunk <- function(chunkid, chunkdef, dat, i){  # function argument
+  
+    train = (chunkdef != chunkid)
+    
+    Xtr = dat[train, -11]  # get training set
+    Ytr = dat[train, 11]  # get true response values in trainig set
+    
+    Xvl = dat[!train, -11]  # get validation set
+    Yvl = dat[!train, 11]  # get true response values in validation set
+    
+    model <- if(i==0) lm(wage ~ 1, data = dat[train,]) else lm(wage ~ poly(age, i), data = dat[train,])
+    
+    predYtr = predict(model)  # predict training values
+    predYvl = predict(model, Xvl)  # predict validation values
+    
+    data.frame(fold = chunkid,
+               # compute and store training error
+               train.error = mean((predYtr - Ytr)^2),
+                # compute and store test error
+               val.error = mean((predYvl - Yvl)^2))  
+}
+```
+
+```{r 6c) CV for model selection, indent = indent2}
+n = 5
+p = 10
+
+test_error <- NA
+train_error <- NA
+
+wage.folds <- cut(1:nrow(Wage), breaks = n, labels = FALSE) %>% sample()
+
+for(i in 0:p){
+  wage.CV <- 1:n %>% plyr::ldply(do.wage.chunk, wage.folds, Wage, i)
+  test_error[i] <-  mean(wage.CV$val.error)
+  train_error[i] <-  mean(wage.CV$train.error)
+}
+
+test_error
+train_error
+```
         
 
 ---------------
