@@ -11,3 +11,112 @@ Encoding: UTF-8
 
 RnwWeave: Sweave
 LaTeX: pdfLaTeX
+
+
+Problem #2
+```{r}
+install.packages("tidyverse")
+library(tidyverse)
+algae <- read_table2("algaeBloom.txt", col_names=
+c('season','size','speed','mxPH','mnO2','Cl','NO3','NH4',
+'oPO4','PO4','Chla','a1','a2','a3','a4','a5','a6','a7'),
+na="XXXXXXX")
+glimpse(algae)
+```
+
+2(a)
+```{r}
+theme_update(plot.title = element_text(hjust = 0.5))
+df <- algae
+ggplot(df, aes(x=algae$mxPH)) + 
+  ggtitle("Histogram of mxPH") +
+  xlab("mxPH") + ylab("Prob")+
+    geom_histogram(aes(y=..density..),     
+                   binwidth=.1,
+                   colour="white", fill="pink")
+#The distribution is not skewed.
+```
+
+
+2(b)
+```{r}
+ggplot(df, aes(x=algae$mxPH)) + 
+  ggtitle("Histogram of mxPH") +
+  xlab("mxPH") + ylab("Prob")+
+    geom_histogram(aes(y=..density..),     
+                   binwidth=.1,
+                   colour="white", fill="pink")+
+geom_density(alpha=.2,col="gold") 
+```
+
+```{r}
+ggplot(df, aes(x=algae$mxPH)) + 
+  ggtitle("Histogram of mxPH") +
+  xlab("mxPH") + ylab("Prob")+
+    geom_histogram(aes(y=..density..),     
+                   binwidth=.1,
+                   colour="white", fill="pink")+
+geom_rug(alpha=.2,col="purple") 
+```
+
+
+2(c)
+```{r}
+c <- (arrange(algae,size,a1))
+p <- ggplot(c, aes(x=size, y=a1, color = size)) + geom_boxplot()+
+  ggtitle("A conditioned Boxplot of Algal a1") +
+  scale_color_brewer(palette = "PuRd", direction = -1) 
+p
+```
+
+
+
+2(d)
+```{r}
+install.packages("StatMeasures")
+library(StatMeasures)
+```
+
+```{r}
+d1 <- (arrange(algae,size,NO3))
+p1 <- ggplot(c, aes(x=size, y=NO3, color = size)) + geom_boxplot()+ scale_color_brewer(palette = "PuRd", direction = -1)
+p1
+
+
+lar1_algae <- algae %>% na.omit() %>% filter(size=="large")
+med1_algae <- algae %>% na.omit() %>% filter(size=="medium")
+sml1_algae <- algae %>% na.omit() %>% filter(size=="small")
+
+outliers(lar1_algae$NO3)
+outliers(med1_algae$NO3)
+outliers(sml1_algae$NO3)
+
+
+#There is 0 outlier for NO3 with size large, 1 outliers for NO3 with size medium, and 3 outliers for NO3 wuth size small. We arrived at this conclusion by using the function outliers which defines all values that are greater than 75th percentile value + 1.5 times the inter quartile range or lesser than 25th percentile value - 1.5 times the inter quartile range as outliers.
+```
+
+```{r}
+d2 <- (arrange(algae,size,NH4))
+p2 <- ggplot(c, aes(x=size, y=NH4, color= size)) + geom_boxplot()+ scale_color_brewer(palette = "PuRd", direction = -1)
+p2
+
+lar2_algae <- algae %>% na.omit() %>% filter(size=="large")
+med2_algae <- algae %>% na.omit() %>% filter(size=="medium")
+sml2_algae <- algae %>% na.omit() %>% filter(size=="small")
+
+outliers(lar1_algae$NH4)
+outliers(med1_algae$NH4)
+outliers(sml1_algae$NH4)
+
+#There are 6 outliers for NH4 with size large, 11 outliers for NH4 with size medium, and 10 outliers for NH4 wuth size small. We arrived at this conclusion by using the function outliers which defines all values that are greater than 75th percentile value + 1.5 times the inter quartile range or lesser than 25th percentile value - 1.5 times the inter quartile range as outliers.
+```
+
+
+2(e)
+```{r}
+?mad
+summarise(d1, mean_NO3 = mean(NO3, na.rm = TRUE), variance_NO3 = var(NO3, na.rm = TRUE), median_NO3 = median(NO3, na.rm = TRUE), MAD_NO3 = mad(NO3, na.rm = TRUE))
+summarise(d2, mean_NH4 = mean(NH4, na.rm = TRUE), variance_NH4 = var(NH4, na.rm = TRUE), median_NH4 = median(NH4, na.rm = TRUE),MAD_NH4 = mad(NH4, na.rm = TRUE))
+#We have noticed that the difference between mean and median/MAD of NO3 is not that large, and the variance of NO3 remains at a normal level. However, the difference between of mean and median/MAD of NH4 is very large, and the variance of NH4 is unusually large. Since there are way more outliers in NH4 rather than in NO3, when outliers are present, median&MAD are more robust.
+```
+
